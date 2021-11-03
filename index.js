@@ -1,6 +1,7 @@
 const { Requester, Validator } = require('@chainlink/external-adapter')
 const { ethers } = require('ethers')
 const ProducerABI = require('./abis/Producer.json')
+const axios = require('axios')
 require('dotenv').config()
 
 // Define custom error scenarios for the API.
@@ -24,17 +25,32 @@ function getProducerContract() {
    return Producer
 }
 
-function getGlobalVRF(producer) {
-   // getGlobalVRF()
+async function getGlobalVRF(producer) {
+   const globalVRF = await producer.getGlobalVRF(gasOpts)
+   return globalVRF 
 }
-function getChunkSize(producer) {
-   // getChunkSize()
+async function getChunkSize(producer) {
+   const chunkSize = await producer.getChunkSize(gasOpts)
+   return chunkSize.toNumber()
+}
+async function getProducerVRF(producer, producerId) {
+   const producerVRF = await producer.getValue(producerId, gasOpts)
+   return producerVRF
 }
 //function getMaxProducers(producer) {}
 
-function getProducerVRF(producer, producerId) {
-   // getValue(producerId)
+const MAX_UINT256 = ethers.BigNumber.from("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+
+
+function createUrl(hexNum) {
+   return `http://localhost:8888/random/${hexNum}`
 }
+
+function getRandom(x,y) {
+   return (x.mul(y)).mod(MAX_UINT256)
+
+}
+
 
 async function createRequest(input, callback)  {
   // The Validator helps you validate the Chainlink request data
@@ -42,17 +58,26 @@ async function createRequest(input, callback)  {
    if (validator.error) throw validator.error
    const jobRunID = validator.validated.id
 
-   const chunkId = validator.validated.chunkId 
-
-   const url = `http://localhost:8888/random/`
-
+   const chunkId = validator.validated.data.chunkId 
    const Producer = getProducerContract()
+   const chunkSize = await getChunkSize(Producer)
+   const start = chunkId * chunkSize
+   const end = start + chunkSize
 
-   console.log(result)
+   const globalVRF = await getGlobalVRF(Producer)
+   for (var i = start; i < end; i++ ) {
+      var prodVRF = await getProducerVRF(Producer, i)
+      var random = getRandom(globalVRF, prodVRF)
+      var config = {
+         url: createUrl(random),
+      }
+      var response = await axios(config)
+      console.log(response.data)
+   }
    
    const params = {
    }
-   const config = {
+   config = {
       url,
       params
    }
@@ -60,7 +85,7 @@ async function createRequest(input, callback)  {
    Requester.request(config, customError)
       .then(response => {
 
-         response.data.result = Requester.validateResultNumber(response.data.count, [])
+         response.data.result = Requester.validateResultNumber(response.data.id, [])
          console.log(response.data.result)
          callback(response.status, Requester.success(jobRunID, response))
       })
