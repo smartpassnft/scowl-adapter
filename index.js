@@ -95,9 +95,7 @@ async function createRequest(input, callback)  {
       }
 
       // aggreate words
-      //for (var j=0; j<40; j++) {
-         words.push(response.data.word)
-      //}
+      words.push(response.data.word)
    }
 
    // build response
