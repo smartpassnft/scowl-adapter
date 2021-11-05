@@ -1,0 +1,29 @@
+type = "directrequest"
+schemaVersion = 1
+name = "scowl-test"
+contractAddress = "0xc0E1ef2F1Da9455C03444BaEf89cBF73f71a1969"
+maxTaskDuration = "0s"
+observationSource = """
+
+    decode_log   [type=ethabidecodelog
+                  abi="OracleRequest(bytes32 indexed specId, address requester, bytes32 requestId, uint256 payment, address callbackAddr, bytes4 callbackFunctionId, uint256 cancelExpiration, uint256 dataVersion, bytes data)"
+                  data="$(jobRun.logData)"
+                  topics="$(jobRun.logTopics)"]
+    decode_cbor  [type=cborparse data="$(decode_log.data)"]
+
+    fetch        [type=bridge name="scowl" requestData="{\\"id\\": $(decode_log.requestId), \\"data\\": { \\"chunkId\\": $(decode_cbor.chunkId)}}"]
+
+    words        [type=jsonparse path="data,result,words" data="$(fetch)"]
+    produced        [type=jsonparse path="data,result,produced" data="$(fetch)"]
+
+    encode_fulfill [type="ethabiencode" abi="(bytes32 requestId, uint256 chunkId, uint256 produced, bytes memory bytesData)" data="{\\"requestId\\": $(decode_log.requestId) , \\"bytesData\\": $(words), \\"chunkId\\": $(decode_cbor.chunkId), \\"produced\\": $(produced)}"]
+
+    encode_tx    [type=ethabiencode abi="fulfillOracleRequest2(bytes32 requestId, uint256 payment, address callbackAddress, bytes4 callbackFunctionId, uint256 expiration, bytes calldata data)"
+                  data="{\\"requestId\\": $(decode_log.requestId), \\"payment\\": $(decode_log.payment), \\"callbackAddress\\": $(decode_log.callbackAddr), \\"callbackFunctionId\\": $(decode_log.callbackFunctionId), \\"expiration\\": $(decode_log.cancelExpiration), \\"data\\": $(encode_fulfill)}"
+                 ]
+
+    submit_tx    [type=ethtx to="0xc0E1ef2F1Da9455C03444BaEf89cBF73f71a1969" data="$(encode_tx)" gasLimit=8000000]
+
+
+    decode_log -> decode_cbor -> fetch -> words -> produced -> encode_fulfill -> encode_tx -> submit_tx
+"""

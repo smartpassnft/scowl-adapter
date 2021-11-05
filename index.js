@@ -41,14 +41,12 @@ async function getProducerVRF(producer, producerId) {
 
 const MAX_UINT256 = ethers.BigNumber.from("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
 
-
 function createUrl(hexNum) {
    return `http://localhost:8888/random/${hexNum}`
 }
 
 function getRandom(x,y) {
    return (x.mul(y)).mod(MAX_UINT256)
-
 }
 
 
@@ -65,32 +63,58 @@ async function createRequest(input, callback)  {
    const end = start + chunkSize
 
    const globalVRF = await getGlobalVRF(Producer)
+   const words = []
+   var url;
    for (var i = start; i < end; i++ ) {
-      var prodVRF = await getProducerVRF(Producer, i)
+
+      // get producer VRF
+      var prodVRF
+      try { // assumes empty produce implies all past are empty (not minted) as well
+         prodVRF = await getProducerVRF(Producer, i)
+      } catch {
+         console.log("Producer ", i, " does not exist")
+         break;
+      }
+
+      // get random number from scowldb
       var random = getRandom(globalVRF, prodVRF)
       var config = {
          url: createUrl(random),
       }
-      var response = await axios(config)
-      console.log(response.data)
-   }
-   
-   const params = {
-   }
-   config = {
-      url,
-      params
+      var response
+      try {
+         response = await axios(config)
+      } catch (error) { 
+         throw new AdapterError({ message: error.message, cause: error })
+      }
+      if (response.data.error) {
+         const message = `Could not retrieve valid data: ${JSON.stringify(response.data)}`
+         logger.error(message)
+         const cause = response.data.error 
+         throw new AdapterError({ message, cause })
+      }
+
+      // aggreate words
+      //for (var j=0; j<40; j++) {
+         words.push(response.data.word)
+      //}
    }
 
-   Requester.request(config, customError)
-      .then(response => {
+   // build response
+   const produced = words.length
+   const wordBytes = words.join(',')
+   var resp = { 
+      jobRunID,
+      data: { 
+         result: {
+            produced,
+            words: wordBytes
+         }
+      },
+      status: 200
+   }
 
-         response.data.result = Requester.validateResultNumber(response.data.id, [])
-         console.log(response.data.result)
-         callback(response.status, Requester.success(jobRunID, response))
-      })
-      .catch(error => {
-         callback(500, Requester.errored(jobRunID, error))
-      })
+   callback(resp.status, Requester.success(jobRunID, resp))
+
 }
 module.exports.createRequest = createRequest
