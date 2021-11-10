@@ -14,8 +14,7 @@ const customError = (data) => {
    return false
 }
 
-function getProducerContract() {
-   const producerAddress = process.env.PRODUCER_ADDRESS
+function getProducerContract(producerAddress) {
    const provider = new ethers.providers.JsonRpcProvider(process.env.RPC_HOST)
    const producerInterface = new ethers.utils.Interface(ProducerABI.abi)
    const Producer = new ethers.Contract(producerAddress, producerInterface, provider)
@@ -42,12 +41,13 @@ function getRandom(x,y) {
 
 async function createRequest(input, callback)  {
   // The Validator helps you validate the Chainlink request data
+   console.log()
    const validator = new Validator(input, customParams)
    if (validator.error) throw validator.error
    const jobRunID = validator.validated.id
 
    const chunkId = validator.validated.data.chunkId 
-   const Producer = getProducerContract()
+   const Producer = getProducerContract(input['meta']['oracleRequest']['callbackAddr'])
    const chunkSize = await getChunkSize(Producer)
    const start = chunkId * chunkSize
    const end = start + chunkSize
