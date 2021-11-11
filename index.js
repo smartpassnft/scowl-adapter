@@ -15,7 +15,7 @@ const customError = (data) => {
 }
 
 function getProducerContract(producerAddress) {
-   const provider = new ethers.providers.JsonRpcProvider(process.env.RPC_HOST)
+   const provider = new ethers.providers.JsonRpcProvider("http://localhost:9650/ext/bc/C/rpc")
    const producerInterface = new ethers.utils.Interface(ProducerABI.abi)
    const Producer = new ethers.Contract(producerAddress, producerInterface, provider)
    return Producer
@@ -56,6 +56,7 @@ async function createRequest(input, callback)  {
    const words = []
    var url;
    for (var i = start; i < end; i++ ) {
+      console.log(i);
       // get producer VRF
       var prodVRF
       try { // assumes empty produce implies all past are empty (not minted) as well
