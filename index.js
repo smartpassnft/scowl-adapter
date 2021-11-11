@@ -41,7 +41,6 @@ function getRandom(x,y) {
 
 async function createRequest(input, callback)  {
   // The Validator helps you validate the Chainlink request data
-   console.log()
    const validator = new Validator(input, customParams)
    if (validator.error) throw validator.error
    const jobRunID = validator.validated.id
@@ -56,7 +55,6 @@ async function createRequest(input, callback)  {
    const words = []
    var url;
    for (var i = start; i < end; i++ ) {
-      console.log(i);
       // get producer VRF
       var prodVRF
       try { // assumes empty produce implies all past are empty (not minted) as well
